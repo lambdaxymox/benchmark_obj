@@ -15,3 +15,7 @@ criterion = "0.3.2"
 [[bench]]
 name = "benchmark_test"
 harness = false
+
+[[bench]]
+name = "benchmark_teapot"
+harness = false
