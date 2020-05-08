@@ -82,27 +82,52 @@ fn slice_res(st: &Result<String, ParseError>) -> Result<&str, &ParseError> {
     st.as_ref().map(|s| &s[..])
 }
 
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ErrorKind {
+    EndOfFile,
+    ExpectedStatementButGot(String, String),
+    ExpectedFloatButGot(String),
+    ExpectedIntegerButGot(String),
+    ExpectedVertexIndexButGot(String),
+    ExpectedTextureIndexButGot(String),
+    ExpectedNormalIndexButGot(String),
+    ExpectedVertexNormalIndexButGot(String),
+    ExpectedVertexTextureIndexButGot(String),
+    ExpectedVertexTextureNormalIndexButGot(String),
+    EveryFaceElementMustHaveAtLeastThreeVertices,
+    EveryVTNIndexMustHaveTheSameFormForAGivenFace,
+    InvalidElementDeclaration(String),
+    InvalidElement,
+}
+
+impl fmt::Display for ErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "")
+    }
+}
+
 /// An error that is returned from parsing an invalid *.obj file, or
 /// another kind of error.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ParseError {
     line_number: usize,
-    message: String,
+    kind: ErrorKind,
 }
 
 impl ParseError {
     /// Generate a new parse error.
-    fn new(line_number: usize, message: String) -> ParseError {
+    fn new(line_number: usize, kind: ErrorKind) -> ParseError {
         ParseError {
             line_number: line_number,
-            message: message,
+            kind: kind,
         }
     }
 }
 
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "Parse error at line {}: {}", self.line_number, self.message)
+        write!(f, "Parse error at line {}: {}", self.line_number, self.kind)
     }
 }
 
@@ -230,14 +255,15 @@ impl<Stream> Parser<Stream> where Stream: Iterator<Item=char> {
         self.next();
     }
 
-    fn error<T>(&mut self, err: String) -> Result<T, ParseError> {
-        Err(ParseError::new(self.line_number, err))
+    #[inline]
+    fn error<T>(&mut self, kind: ErrorKind) -> Result<T, ParseError> {
+        Err(ParseError::new(self.line_number, kind))
     }
 
     fn next_string(&mut self) -> Result<String, ParseError> {
         match self.next() {
             Some(st) => Ok(st),
-            None => self.error(format!("Expected string but got `end of file`."))
+            None => self.error(ErrorKind::EndOfFile)
         }
     }
 
@@ -245,7 +271,7 @@ impl<Stream> Parser<Stream> where Stream: Iterator<Item=char> {
         let st = self.next_string()?;
         match st == tag {
             true => Ok(st),
-            false => self.error(format!("Expected `{}` statement but got: `{}`.", tag, st))
+            false => self.error(ErrorKind::ExpectedStatementButGot(tag.into(), st))
         }
     }
 
@@ -253,7 +279,7 @@ impl<Stream> Parser<Stream> where Stream: Iterator<Item=char> {
         let st = self.next_string()?;
         match st.parse::<f32>() {
             Ok(val) => Ok(val),
-            Err(_) => self.error(format!("Expected `f32` but got `{}`.", st)),
+            Err(_) => self.error(ErrorKind::ExpectedFloatButGot(st)),
         }
     }
 
@@ -261,7 +287,7 @@ impl<Stream> Parser<Stream> where Stream: Iterator<Item=char> {
         let st = self.next_string()?;
         match st.parse::<u32>() {
             Ok(val) => Ok(val),
-            Err(_) => self.error(format!("Expected integer but got `{}`.", st)),
+            Err(_) => self.error(ErrorKind::ExpectedIntegerButGot(st)),
         }
     }
 
@@ -321,92 +347,101 @@ impl<Stream> Parser<Stream> where Stream: Iterator<Item=char> {
         Ok(())
     }
 
-    fn parse_vn(&mut self, st: &str) -> Result<VTNIndex, ParseError> {
-        if let Some(v_index_in_str) = st.find("//") {
-            let v_index = match st[0..v_index_in_str].parse::<u32>() {
-                Ok(val) => val,
-                Err(_) => return self.error(format!("Expected `vertex` index but got `{}`", st))
-            };
-            let vn_index = match st[v_index_in_str+2..].parse::<u32>() {
-                Ok(val) => val,
-                Err(_) => return self.error(format!("Expected `normal` index but got `{}`", st))
-            };
-
-            return Ok(VTNIndex::VN(v_index, vn_index));
-        } else {
-            return self.error(format!("Expected `vertex//normal` index but got `{}`", st))
-        }
-    }
-
-    fn parse_vt(&mut self, st: &str) -> Result<VTNIndex, ParseError> {
-        if let Some(v_index_in_str) = st.find("/") {
-            let v_index = match st[0..v_index_in_str].parse::<u32>() {
-                Ok(val) => val,
-                Err(_) => return self.error(format!("Expected `vertex` index but got `{}`", st))
-            };
-            let vt_index = match st[v_index_in_str+1..].parse::<u32>() {
-                Ok(val) => val,
-                Err(_) => return self.error(format!("Expected `texture` index but got `{}`", st))
-            };
-
-            return Ok(VTNIndex::VT(v_index, vt_index));
-        } else {
-            return self.error(format!("Expected `vertex/texture` index but got `{}`", st))
-        }
-    }
-
-    fn parse_vtn(&mut self, st: &str) -> Result<VTNIndex, ParseError> {
-        let v_index_in_str = match st.find("/") {
-            Some(val) => val,
-            None => return self.error(format!("Expected `vertex` index but got `{}`", st))
-        };
-        let v_index = match st[0..v_index_in_str].parse::<u32>() {
-            Ok(val) => val,
-            Err(_) => return self.error(format!("Expected `vertex` index but got `{}`", st))
-        };
-        let vt_index_in_str = match st[(v_index_in_str + 1)..].find("/") {
-            Some(val) => v_index_in_str + 1 + val,
-            None => return self.error(format!("Expected `texture` index but got `{}`", st))
-        };
-        let vt_index = match st[(v_index_in_str + 1)..vt_index_in_str].parse::<u32>() {
-            Ok(val) => val,
-            Err(_) => return self.error(format!("Expected `texture` index but got `{}`", st))
-        };
-        let vn_index = match st[(vt_index_in_str + 1)..].parse::<u32>() {
-            Ok(val) => val,
-            Err(_) => return self.error(format!("Expected `normal` index but got `{}`", st))
-        };
-   
-        Ok(VTNIndex::VTN(v_index, vt_index, vn_index))
-    }
-
-    fn parse_v(&mut self, st: &str) -> Result<VTNIndex, ParseError> {
-        match st.parse::<u32>() {
-            Ok(val) => Ok(VTNIndex::V(val)),
-            Err(_) => return self.error(format!("Expected `vertex` index but got `{}`", st))
-        }
-    }
-
     fn parse_vtn_index(&mut self) -> Result<VTNIndex, ParseError> {
+        enum VTNErrorKind {
+            ExpectedVertexIndexButGot,
+            ExpectedNormalIndexButGot,
+            ExpectedVertexNormalIndexButGot,
+            ExpectedTextureIndexButGot,
+            ExpectedVertexTextureIndexButGot,
+        }
+
+        fn parse_vn(st: &str) -> Result<VTNIndex, VTNErrorKind> {
+            if let Some(v_index_in_str) = st.find("//") {
+                let v_index = match st[0..v_index_in_str].parse::<u32>() {
+                    Ok(val) => val,
+                    Err(_) => return Err(VTNErrorKind::ExpectedVertexIndexButGot),
+                };
+                let vn_index = match st[v_index_in_str+2..].parse::<u32>() {
+                    Ok(val) => val,
+                    Err(_) => return Err(VTNErrorKind::ExpectedNormalIndexButGot),
+                };
+    
+                return Ok(VTNIndex::VN(v_index, vn_index));
+            } else {
+                return Err(VTNErrorKind::ExpectedVertexNormalIndexButGot);
+            }
+        }
+    
+        fn parse_vt(st: &str) -> Result<VTNIndex, VTNErrorKind> {
+            if let Some(v_index_in_str) = st.find("/") {
+                let v_index = match st[0..v_index_in_str].parse::<u32>() {
+                    Ok(val) => val,
+                    Err(_) => return Err(VTNErrorKind::ExpectedVertexIndexButGot),
+                };
+                let vt_index = match st[v_index_in_str+1..].parse::<u32>() {
+                    Ok(val) => val,
+                    Err(_) => return Err(VTNErrorKind::ExpectedTextureIndexButGot)
+                };
+    
+                return Ok(VTNIndex::VT(v_index, vt_index));
+            } else {
+                return Err(VTNErrorKind::ExpectedVertexTextureIndexButGot);
+            }
+        }
+    
+        fn parse_vtn(st: &str) -> Result<VTNIndex, VTNErrorKind> {
+            let v_index_in_str = match st.find("/") {
+                Some(val) => val,
+                None => return Err(VTNErrorKind::ExpectedVertexIndexButGot),
+            };
+            let v_index = match st[0..v_index_in_str].parse::<u32>() {
+                Ok(val) => val,
+                Err(_) => return Err(VTNErrorKind::ExpectedVertexIndexButGot),
+            };
+            let vt_index_in_str = match st[(v_index_in_str + 1)..].find("/") {
+                Some(val) => v_index_in_str + 1 + val,
+                None => return Err(VTNErrorKind::ExpectedTextureIndexButGot),
+            };
+            let vt_index = match st[(v_index_in_str + 1)..vt_index_in_str].parse::<u32>() {
+                Ok(val) => val,
+                Err(_) => return Err(VTNErrorKind::ExpectedTextureIndexButGot),
+            };
+            let vn_index = match st[(vt_index_in_str + 1)..].parse::<u32>() {
+                Ok(val) => val,
+                Err(_) => return Err(VTNErrorKind::ExpectedNormalIndexButGot),
+            };
+       
+            Ok(VTNIndex::VTN(v_index, vt_index, vn_index))
+        }
+    
+        fn parse_v(st: &str) -> Result<VTNIndex, VTNErrorKind> {
+            match st.parse::<u32>() {
+                Ok(val) => Ok(VTNIndex::V(val)),
+                Err(_) => return Err(VTNErrorKind::ExpectedVertexIndexButGot)
+            }
+        }
+
+
         let st = self.next_string()?;
-        match self.parse_vn(&st) {
+        match parse_vn(&st) {
             Ok(val) => return Ok(val),
             Err(_) => {},
         }
-        match self.parse_vtn(&st) {
+        match parse_vtn(&st) {
             Ok(val) => return Ok(val),
             Err(_) => {},
         }
-        match self.parse_vt(&st) {
+        match parse_vt(&st) {
             Ok(val) => return Ok(val),
             Err(_) => {},
         }
-        match self.parse_v(&st) {
+        match parse_v(&st) {
             Ok(val) => return Ok(val),
             Err(_) => {},
         }
 
-        self.error(format!("Expected `vertex/texture/normal` index but got `{}`", st))
+        self.error(ErrorKind::ExpectedVertexTextureNormalIndexButGot(st.into()))
     }
 
     fn parse_vtn_indices(&mut self, vtn_indices: &mut Vec<VTNIndex>) -> Result<u32, ParseError> {
@@ -427,17 +462,13 @@ impl<Stream> Parser<Stream> where Stream: Iterator<Item=char> {
 
         // Check that there are enough vtn indices.
         if vtn_indices.len() < 3 {
-            return self.error(
-                format!("A face element must have at least three vertices.")
-            );  
+            return self.error(ErrorKind::EveryFaceElementMustHaveAtLeastThreeVertices);  
         }
 
         // Verify that each VTN index has the same type and if of a valid form.
         for i in 1..vtn_indices.len() {
             if !vtn_indices[i].has_same_type_as(&vtn_indices[0]) {
-                return self.error(
-                    format!("Every vertex/texture/normal index must have the same form.")
-                );
+                return self.error(ErrorKind::EveryVTNIndexMustHaveTheSameFormForAGivenFace);
             }
         }
 
@@ -455,7 +486,7 @@ impl<Stream> Parser<Stream> where Stream: Iterator<Item=char> {
     fn parse_elements(&mut self, elements: &mut Vec<Element>) -> Result<u32, ParseError> {  
         match slice(&self.peek()) {
             Some("f") => self.parse_face(elements),
-            _ => self.error(format!("Parser error: Line must be a face.")),
+            _ => self.error(ErrorKind::InvalidElement),
         }
     }
 
@@ -492,9 +523,7 @@ impl<Stream> Parser<Stream> where Stream: Iterator<Item=char> {
                     self.skip_one_or_more_newlines()?;
                 }
                 Some(other_st) => {
-                    return self.error(format!(
-                        "Parse error: Invalid element declaration in obj file. Got `{}`", other_st
-                    ));
+                    return self.error(ErrorKind::InvalidElementDeclaration(other_st.into()));
                 }
                 None => {
                     break;

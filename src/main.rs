@@ -16,7 +16,7 @@ const SAMPLE_DATA: &str = "assets/teapot.obj";
 
 fn main() {
     println!("BEGING PARSING.");
-    let result = parser1::parse_file(SAMPLE_DATA);
+    let result: parser1::Object = parser1::parse_file(SAMPLE_DATA).unwrap();
     println!("END PARSING.");
     /*
     let file = File::open(SAMPLE_DATA).unwrap();
