@@ -419,30 +419,6 @@ impl<Stream> Parser<Stream> where Stream: Iterator<Item=char> {
         Ok(indices_parsed)
     }
 
-    fn parse_point(&mut self, elements: &mut Vec<Element>) -> Result<u32, ParseError> {
-        self.expect("p")?;
-
-        let v_index = self.parse_u32()?;
-        elements.push(Element::Point(VTNIndex::V(v_index)));
-        let mut elements_parsed = 1;
-        loop {
-            match slice_res(&self.next_string()) {
-                Ok(st) if st != "\n" => match st.parse::<u32>() {
-                    Ok(v_index) => { 
-                        elements.push(Element::Point(VTNIndex::V(v_index)));
-                        elements_parsed += 1;
-                    }
-                    Err(_) => {
-                        return self.error(format!("Expected integer but got `{}`.", st))
-                    }
-                }
-                _ => break,
-            }
-        }
-
-        Ok(elements_parsed)
-    }
-
     fn parse_face(&mut self, elements: &mut Vec<Element>) -> Result<u32, ParseError> {
         self.expect("f")?;
         
