@@ -1,4 +1,4 @@
-use crate::lexer::Lexer;
+use crate::lexer2::Lexer;
 use std::iter;
 use std::error;
 use std::fmt;
@@ -226,6 +226,7 @@ pub struct Object {
 pub struct Parser<Stream> where Stream: Iterator<Item=char> {
     line_number: usize,
     lexer: iter::Peekable<Lexer<Stream>>,
+    vtn_indices: Vec<VTNIndex>,
 }
 
 impl<Stream> Parser<Stream> where Stream: Iterator<Item=char> {
@@ -233,11 +234,12 @@ impl<Stream> Parser<Stream> where Stream: Iterator<Item=char> {
         Parser {
             line_number: 1,
             lexer: Lexer::new(input).peekable(),
+            vtn_indices: vec![],
         }
     }
 
-    fn peek(&mut self) -> Option<String> {
-        self.lexer.peek().map(|token| token.content.clone())
+    fn peek(&mut self) -> Option<&str> {
+        self.lexer.peek().map(|token| token.content.as_str())
     }
 
     fn next(&mut self) -> Option<String> {
@@ -256,7 +258,7 @@ impl<Stream> Parser<Stream> where Stream: Iterator<Item=char> {
     }
 
     #[inline]
-    fn error<T>(&mut self, kind: ErrorKind) -> Result<T, ParseError> {
+    fn error<T>(&self, kind: ErrorKind) -> Result<T, ParseError> {
         Err(ParseError::new(self.line_number, kind))
     }
 
@@ -334,7 +336,7 @@ impl<Stream> Parser<Stream> where Stream: Iterator<Item=char> {
 
     fn skip_zero_or_more_newlines(&mut self) {
         loop {
-            match slice(&self.peek()) {
+            match self.peek() {
                 Some("\n") => self.advance(),
                 _ => break
             }
@@ -443,7 +445,7 @@ impl<Stream> Parser<Stream> where Stream: Iterator<Item=char> {
 
         self.error(ErrorKind::ExpectedVertexTextureNormalIndexButGot(st.into()))
     }
-
+    /*
     fn parse_vtn_indices(&mut self, vtn_indices: &mut Vec<VTNIndex>) -> Result<u32, ParseError> {
         let mut indices_parsed = 0;
         while let Ok(vtn_index) = self.parse_vtn_index() {
@@ -453,21 +455,34 @@ impl<Stream> Parser<Stream> where Stream: Iterator<Item=char> {
 
         Ok(indices_parsed)
     }
+    */
+
+    fn parse_vtn_indices(&mut self) -> Result<u32, ParseError> {
+        let mut indices_parsed = 0;
+        while let Ok(vtn_index) = self.parse_vtn_index() {
+            self.vtn_indices.push(vtn_index);
+            indices_parsed += 1;
+        }
+
+        Ok(indices_parsed)
+    }
 
     fn parse_face(&mut self, elements: &mut Vec<Element>) -> Result<u32, ParseError> {
         self.expect("f")?;
         
-        let mut vtn_indices = vec![];
-        self.parse_vtn_indices(&mut vtn_indices)?;
+        //let mut vtn_indices = vec![];
+        self.vtn_indices.clear();
+        //self.parse_vtn_indices(&mut vtn_indices)?;
+        self.parse_vtn_indices()?;
 
         // Check that there are enough vtn indices.
-        if vtn_indices.len() < 3 {
+        if self.vtn_indices.len() < 3 {
             return self.error(ErrorKind::EveryFaceElementMustHaveAtLeastThreeVertices);  
         }
 
         // Verify that each VTN index has the same type and if of a valid form.
-        for i in 1..vtn_indices.len() {
-            if !vtn_indices[i].has_same_type_as(&vtn_indices[0]) {
+        for i in 1..self.vtn_indices.len() {
+            if !self.vtn_indices[i].has_same_type_as(&self.vtn_indices[0]) {
                 return self.error(ErrorKind::EveryVTNIndexMustHaveTheSameFormForAGivenFace);
             }
         }
@@ -475,16 +490,16 @@ impl<Stream> Parser<Stream> where Stream: Iterator<Item=char> {
         // Triangulate the polygon with a triangle fan. Note that the OBJ specification
         // assumes that polygons are coplanar, and consequently the parser does not check
         // this. It is up to the model creator to ensure this.
-        let vertex0 = vtn_indices[0];
-        for i in 0..vtn_indices.len()-2 {
-            elements.push(Element::Face(vertex0, vtn_indices[i+1], vtn_indices[i+2]));
+        let vertex0 = self.vtn_indices[0];
+        for i in 0..self.vtn_indices.len()-2 {
+            elements.push(Element::Face(vertex0, self.vtn_indices[i+1], self.vtn_indices[i+2]));
         }
 
-        Ok((vtn_indices.len() - 2) as u32)
+        Ok((self.vtn_indices.len() - 2) as u32)
     }
 
     fn parse_elements(&mut self, elements: &mut Vec<Element>) -> Result<u32, ParseError> {  
-        match slice(&self.peek()) {
+        match self.peek() {
             Some("f") => self.parse_face(elements),
             _ => self.error(ErrorKind::InvalidElement),
         }
@@ -503,7 +518,7 @@ impl<Stream> Parser<Stream> where Stream: Iterator<Item=char> {
         let mut normal_vertices = vec![];        
         let mut elements = vec![];
         loop {
-            match slice(&self.peek()) {
+            match self.peek() {
                 Some("v")  => {
                     let vertex = self.parse_vertex()?;
                     vertices.push(vertex);
@@ -523,7 +538,8 @@ impl<Stream> Parser<Stream> where Stream: Iterator<Item=char> {
                     self.skip_one_or_more_newlines()?;
                 }
                 Some(other_st) => {
-                    return self.error(ErrorKind::InvalidElementDeclaration(other_st.into()));
+                    let st: String = other_st.into();
+                    return self.error(ErrorKind::InvalidElementDeclaration(st));
                 }
                 None => {
                     break;
