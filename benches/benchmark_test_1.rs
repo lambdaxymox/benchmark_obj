@@ -10,7 +10,7 @@ const SAMPLE_DATA: &str = "assets/test.obj";
 
 
 fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("parse test.obj", |b| b.iter(|| {
+    c.bench_function("parser1 test.obj", |b| b.iter(|| {
         let result = obj::parser1::parse_file(black_box(SAMPLE_DATA));
         result.unwrap()
     }));

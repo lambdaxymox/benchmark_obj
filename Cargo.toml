@@ -13,9 +13,17 @@ edition = "2018"
 criterion = "0.3.2"
 
 [[bench]]
-name = "benchmark_test"
+name = "benchmark_test_1"
 harness = false
 
 [[bench]]
-name = "benchmark_teapot"
+name = "benchmark_teapot_1"
+harness = false
+
+[[bench]]
+name = "benchmark_test_2"
+harness = false
+
+[[bench]]
+name = "benchmark_teapot_2"
 harness = false
