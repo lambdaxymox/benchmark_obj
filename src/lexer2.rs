@@ -92,26 +92,10 @@ impl<Stream> Lexer<Stream> where Stream: Iterator<Item=char> {
     /// The function `skip_comment` consumes a comment line
     /// without returning it.
     fn skip_comment(&mut self) -> usize {
-        let mut skipped = 0;
         match self.peek_char() {
-            Some('#') => {
-                skipped += self.skip_unless(|ch| ch == '\n')
-            }
-            _ => {}
+            Some('#') => self.skip_unless(|ch| ch == '\n'),
+            _ => 0,
         }
-        /*
-        loop {
-            match self.peek_char() { 
-                Some(ch) if !is_newline(ch) => {
-                    self.advance();
-                    skipped += 1;
-                }
-                _ => break,
-            }
-        }
-        */
-
-        skipped
     }
 
     /// The function `skip_whitespace` consumes a string of whitespace
