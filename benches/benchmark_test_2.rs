@@ -4,7 +4,7 @@ use criterion::{
     criterion_main, 
     Criterion
 };
-use wavefront_exp as obj;
+use benchmark_obj as obj;
 
 const SAMPLE_DATA: &str = "assets/test.obj";
 

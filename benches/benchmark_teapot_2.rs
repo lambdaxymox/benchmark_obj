@@ -4,7 +4,7 @@ use criterion::{
     criterion_main, 
     Criterion
 };
-use wavefront_exp as obj;
+use benchmark_obj as obj;
 use obj::lexer::{
     Lexer,
 };
@@ -15,17 +15,30 @@ use std::io::{
     Read
 };
 
+use wavefront_obj as piston_obj;
+
 const SAMPLE_DATA: &str = "assets/teapot.obj";
 
 
-fn criterion_benchmark(c: &mut Criterion) {
+fn benchmark(c: &mut Criterion) {
     c.bench_function("parser2 teapot.obj", |b| b.iter(|| {
         let result = obj::parser2::parse_file(black_box(SAMPLE_DATA));
         result.unwrap()
     }));
 }
 
-fn criterion_benchmark_lexer(c: &mut Criterion) {
+fn benchmark_piston(c: &mut Criterion) {
+    c.bench_function("piston parser teapot.obj", |b| b.iter(|| {
+        let file = File::open(SAMPLE_DATA).unwrap();
+        let mut reader = BufReader::new(file);
+        let mut string = String::new();
+        reader.read_to_string(&mut string).unwrap();
+        let result = piston_obj::obj::parse(black_box(SAMPLE_DATA));
+        result.unwrap()
+    }));
+}
+
+fn benchmark_lexer(c: &mut Criterion) {
     c.bench_function("lexer1 teapot.obj", |b| b.iter(|| {
         let file = File::open(SAMPLE_DATA).unwrap();
         let mut reader = BufReader::new(file);
@@ -38,7 +51,7 @@ fn criterion_benchmark_lexer(c: &mut Criterion) {
     }));
 }
 
-fn criterion_benchmark_lexer2(c: &mut Criterion) {
+fn benchmark_lexer2(c: &mut Criterion) {
     c.bench_function("lexer2 teapot.obj", |b| b.iter(|| {
         let file = File::open(SAMPLE_DATA).unwrap();
         let mut reader = BufReader::new(file);
@@ -51,5 +64,5 @@ fn criterion_benchmark_lexer2(c: &mut Criterion) {
     }));
 }
 
-criterion_group!(benches, criterion_benchmark, criterion_benchmark_lexer, criterion_benchmark_lexer2);
+criterion_group!(benches, benchmark, benchmark_piston, benchmark_lexer, benchmark_lexer2);
 criterion_main!(benches);
