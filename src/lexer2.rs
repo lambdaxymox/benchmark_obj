@@ -15,24 +15,6 @@ fn is_newline(ch: u8) -> bool {
 fn is_whitespace_or_newline(ch: u8) -> bool {
     is_whitespace(ch) || is_newline(ch)
 }
-/*
-/// The return type from the lexer.
-#[derive(Clone, Debug)]
-pub struct Token {
-    pub line_number: usize,
-    pub content: String,
-}
-
-
-impl Token {
-    fn new(line_number: usize, content: String) -> Token {
-        Token {
-            line_number: line_number,
-            content: content,
-        }
-    }
-}
-*/
 /// A OBJ file lexer tokenizes an input character stream.
 #[derive(Clone)]
 pub struct Lexer<'a> {
