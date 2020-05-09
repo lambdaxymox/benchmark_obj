@@ -112,11 +112,10 @@ impl<Stream> Lexer<Stream> where Stream: Iterator<Item=char> {
         // Count the number of bytes consumed for a token.
         let mut consumed: usize = 0;
         let mut token: String = String::with_capacity(32);
+        self.skip_whitespace();
+        self.skip_comment();
         loop {
             match self.peek() {
-                Some(ch) if ch == '#' => {
-                    self.skip_comment();
-                }
                 Some(ch) if is_whitespace_or_newline(ch) => {
                     // If the cursor is pointing at a whitespace or newline character,
                     // there are two possible situations:
@@ -149,7 +148,7 @@ impl<Stream> Lexer<Stream> where Stream: Iterator<Item=char> {
 
         if consumed != 0 {
             // We consumed a token.
-            debug_assert!(token.len() != 0);
+            debug_assert!(token.len() > 0);
             Some(Token::new(self.current_line_number, token))
         } else {
             debug_assert!(token.len() == 0);
