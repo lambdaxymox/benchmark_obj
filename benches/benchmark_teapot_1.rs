@@ -17,15 +17,15 @@ use std::io::{
 const SAMPLE_DATA: &str = "assets/teapot.obj";
 
 
-fn criterion_benchmark(c: &mut Criterion) {
+fn benchmark_parser(c: &mut Criterion) {
     c.bench_function("parser1 teapot.obj", |b| b.iter(|| {
         let result = obj::parser1::parse_file(black_box(SAMPLE_DATA));
         result.unwrap()
     }));
 }
 
-fn criterion_benchmark_lex(c: &mut Criterion) {
-    c.bench_function("lexer teapot.obj", |b| b.iter(|| {
+fn benchmark_lexer(c: &mut Criterion) {
+    c.bench_function("lexer1 teapot.obj", |b| b.iter(|| {
         let file = File::open(SAMPLE_DATA).unwrap();
         let mut reader = BufReader::new(file);
         let mut string = String::new();
@@ -37,6 +37,6 @@ fn criterion_benchmark_lex(c: &mut Criterion) {
     }));
 }
 
-criterion_group!(benches, criterion_benchmark, criterion_benchmark_lex);
+criterion_group!(benches, benchmark_parser, benchmark_lexer);
 criterion_main!(benches);
 
