@@ -101,6 +101,8 @@ impl<Stream> Lexer<Stream> where Stream: Iterator<Item=char> {
     /// The function `skip_whitespace` consumes a string of whitespace
     /// characters without returning them.
     fn skip_whitespace(&mut self) -> usize {
+        self.skip_while(is_whitespace)
+        /*
         let mut skipped = 0;
         loop {
             match self.peek_char() {
@@ -115,6 +117,7 @@ impl<Stream> Lexer<Stream> where Stream: Iterator<Item=char> {
         }
 
         skipped
+        */
     }
 
     /// The method `next_token` fetches the next token from the input stream.
