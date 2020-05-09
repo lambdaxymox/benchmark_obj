@@ -133,6 +133,10 @@ impl fmt::Display for ParseError {
 
 impl error::Error for ParseError {}
 
+#[inline]
+fn error<T>(line_number: usize, kind: ErrorKind) -> Result<T, ParseError> {
+    Err(ParseError::new(line_number, kind))
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vertex {
@@ -257,15 +261,10 @@ impl<'a> Parser<'a> {
         self.next();
     }
 
-    #[inline]
-    fn error<T>(&self, kind: ErrorKind) -> Result<T, ParseError> {
-        Err(ParseError::new(self.line_number, kind))
-    }
-
     fn next_string(&mut self) -> Result<&'a str, ParseError> {
         match self.next() {
             Some(st) => Ok(st),
-            None => self.error(ErrorKind::EndOfFile)
+            None => error(self.line_number, ErrorKind::EndOfFile)
         }
     }
 
@@ -273,7 +272,7 @@ impl<'a> Parser<'a> {
         let st = self.next_string()?;
         match st == tag {
             true => Ok(st),
-            false => self.error(ErrorKind::ExpectedStatementButGot(tag.into(), st.into()))
+            false => error(self.line_number, ErrorKind::ExpectedStatementButGot(tag.into(), st.into()))
         }
     }
 
@@ -281,7 +280,7 @@ impl<'a> Parser<'a> {
         let st = self.next_string()?;
         match st.parse::<f32>() {
             Ok(val) => Ok(val),
-            Err(_) => self.error(ErrorKind::ExpectedFloatButGot(st.into())),
+            Err(_) => error(self.line_number, ErrorKind::ExpectedFloatButGot(st.into())),
         }
     }
 
@@ -289,7 +288,7 @@ impl<'a> Parser<'a> {
         let st = self.next_string()?;
         match st.parse::<u32>() {
             Ok(val) => Ok(val),
-            Err(_) => self.error(ErrorKind::ExpectedIntegerButGot(st.into())),
+            Err(_) => error(self.line_number, ErrorKind::ExpectedIntegerButGot(st.into())),
         }
     }
 
@@ -443,7 +442,7 @@ impl<'a> Parser<'a> {
             Err(_) => {},
         }
 
-        self.error(ErrorKind::ExpectedVertexTextureNormalIndexButGot(st.into()))
+        error(self.line_number, ErrorKind::ExpectedVertexTextureNormalIndexButGot(st.into()))
     }
 
     fn parse_vtn_indices(&mut self) -> Result<u32, ParseError> {
@@ -466,13 +465,13 @@ impl<'a> Parser<'a> {
 
         // Check that there are enough vtn indices.
         if self.vtn_indices.len() < 3 {
-            return self.error(ErrorKind::EveryFaceElementMustHaveAtLeastThreeVertices);  
+            return error(self.line_number, ErrorKind::EveryFaceElementMustHaveAtLeastThreeVertices);  
         }
 
         // Verify that each VTN index has the same type and if of a valid form.
         for i in 1..self.vtn_indices.len() {
             if !self.vtn_indices[i].has_same_type_as(&self.vtn_indices[0]) {
-                return self.error(ErrorKind::EveryVTNIndexMustHaveTheSameFormForAGivenFace);
+                return error(self.line_number, ErrorKind::EveryVTNIndexMustHaveTheSameFormForAGivenFace);
             }
         }
 
@@ -490,7 +489,7 @@ impl<'a> Parser<'a> {
     fn parse_elements(&mut self, elements: &mut Vec<Element>) -> Result<u32, ParseError> {  
         match self.peek() {
             Some("f") => self.parse_face(elements),
-            _ => self.error(ErrorKind::InvalidElement),
+            _ => error(self.line_number, ErrorKind::InvalidElement),
         }
     }
 
@@ -528,7 +527,7 @@ impl<'a> Parser<'a> {
                 }
                 Some(other_st) => {
                     let st: String = other_st.into();
-                    return self.error(ErrorKind::InvalidElementDeclaration(st));
+                    return error(self.line_number, ErrorKind::InvalidElementDeclaration(st));
                 }
                 None => {
                     break;
