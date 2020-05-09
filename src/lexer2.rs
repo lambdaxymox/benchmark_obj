@@ -53,7 +53,7 @@ impl<Stream> Lexer<Stream> where Stream: Iterator<Item=char> {
     /// The function `peek_u8` looks at the character at the current position
     /// in the byte stream without advancing the stream.
     #[inline]
-    fn peek_char(&mut self) -> Option<char> {
+    fn peek(&mut self) -> Option<char> {
         self.stream.peek().map(|&x| x)
     }
 
@@ -71,7 +71,7 @@ impl<Stream> Lexer<Stream> where Stream: Iterator<Item=char> {
     fn skip_while<P: Fn(char) -> bool>(&mut self, predicate: P) -> usize {
         let mut skipped = 0;
         loop {
-            match self.peek_char() {
+            match self.peek() {
                 Some(ch) if predicate(ch) => {
                     self.advance();
                     skipped += 1;
@@ -92,7 +92,7 @@ impl<Stream> Lexer<Stream> where Stream: Iterator<Item=char> {
     /// The function `skip_comment` consumes a comment line
     /// without returning it.
     fn skip_comment(&mut self) -> usize {
-        match self.peek_char() {
+        match self.peek() {
             Some('#') => self.skip_unless(|ch| ch == '\n'),
             _ => 0,
         }
@@ -102,22 +102,6 @@ impl<Stream> Lexer<Stream> where Stream: Iterator<Item=char> {
     /// characters without returning them.
     fn skip_whitespace(&mut self) -> usize {
         self.skip_while(is_whitespace)
-        /*
-        let mut skipped = 0;
-        loop {
-            match self.peek_char() {
-                Some(ch) if is_whitespace(ch) => {
-                    self.advance();
-                    skipped += 1;
-                }
-                _ => {
-                    break;
-                }
-            }
-        }
-
-        skipped
-        */
     }
 
     /// The method `next_token` fetches the next token from the input stream.
@@ -129,7 +113,7 @@ impl<Stream> Lexer<Stream> where Stream: Iterator<Item=char> {
         let mut consumed: usize = 0;
         let mut token: String = String::with_capacity(32);
         loop {
-            match self.peek_char() {
+            match self.peek() {
                 Some(ch) if ch == '#' => {
                     self.skip_comment();
                 }
