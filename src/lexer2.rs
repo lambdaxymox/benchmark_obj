@@ -68,10 +68,38 @@ impl<Stream> Lexer<Stream> where Stream: Iterator<Item=char> {
         }
     }
 
+    fn skip_while<P: Fn(char) -> bool>(&mut self, predicate: P) -> usize {
+        let mut skipped = 0;
+        loop {
+            match self.peek_char() {
+                Some(ch) if predicate(ch) => {
+                    self.advance();
+                    skipped += 1;
+                }
+                Some(_) | None => {
+                    break;
+                }
+            }
+        }
+
+        skipped
+    }
+
+    fn skip_unless<P: Fn(char) -> bool>(&mut self, not_predicate: P) -> usize {
+        self.skip_while(|ch| !not_predicate(ch))
+    }
+
     /// The function `skip_comment` consumes a comment line
     /// without returning it.
     fn skip_comment(&mut self) -> usize {
         let mut skipped = 0;
+        match self.peek_char() {
+            Some('#') => {
+                skipped += self.skip_unless(|ch| ch == '\n')
+            }
+            _ => {}
+        }
+        /*
         loop {
             match self.peek_char() { 
                 Some(ch) if !is_newline(ch) => {
@@ -81,6 +109,7 @@ impl<Stream> Lexer<Stream> where Stream: Iterator<Item=char> {
                 _ => break,
             }
         }
+        */
 
         skipped
     }
