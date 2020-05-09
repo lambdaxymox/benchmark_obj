@@ -1,4 +1,4 @@
-use crate::lexer2::Lexer;
+use crate::lexer2::{Lexer, ObjectLexer};
 use std::iter;
 use std::error;
 use std::fmt;
@@ -39,7 +39,7 @@ pub fn parse<F: Read>(file: F) -> Result<Object, ObjError> {
     let mut string = String::new();
     reader.read_to_string(&mut string).unwrap();
 
-    let mut parser = Parser::new(string.chars());
+    let mut parser = Parser::new(&string);
 
     match parser.parse() {
         Ok(obj_set) => Ok(obj_set),
@@ -67,7 +67,7 @@ pub fn parse_file<P: AsRef<Path>>(path: P) -> Result<Object, ObjError> {
 
 /// Parse a wavefront object file from a string.
 pub fn parse_str(st: &str) -> Result<Object, ParseError> {
-    let mut parser = Parser::new(st.chars());
+    let mut parser = Parser::new(st);
     parser.parse()
 }
 
@@ -223,28 +223,28 @@ pub struct Object {
 }
 
 /// A Wavefront OBJ file parser.
-pub struct Parser<Stream> where Stream: Iterator<Item=char> {
+pub struct Parser<'a> {
     line_number: usize,
-    lexer: iter::Peekable<Lexer<Stream>>,
+    lexer: ObjectLexer<'a>,
     vtn_indices: Vec<VTNIndex>,
 }
 
-impl<Stream> Parser<Stream> where Stream: Iterator<Item=char> {
-    pub fn new(input: Stream) -> Parser<Stream> {
+impl<'a> Parser<'a> {
+    pub fn new(input: &'a str) -> Parser<'a> {
         Parser {
             line_number: 1,
-            lexer: Lexer::new(input).peekable(),
+            lexer: ObjectLexer::new(Lexer::new(input)),
             vtn_indices: vec![],
         }
     }
 
-    fn peek(&mut self) -> Option<&str> {
-        self.lexer.peek().map(|token| token.content.as_str())
+    fn peek(&mut self) -> Option<&'a str> {
+        self.lexer.peek()
     }
 
-    fn next(&mut self) -> Option<String> {
-        let token = self.lexer.next().map(|t| t.content);
-        if let Some(ref val) = token {
+    fn next(&mut self) -> Option<&'a str> {
+        let token = self.lexer.next();
+        if let Some(val) = token {
             if val == "\n" {
                 self.line_number += 1;
             }
@@ -262,18 +262,18 @@ impl<Stream> Parser<Stream> where Stream: Iterator<Item=char> {
         Err(ParseError::new(self.line_number, kind))
     }
 
-    fn next_string(&mut self) -> Result<String, ParseError> {
+    fn next_string(&mut self) -> Result<&'a str, ParseError> {
         match self.next() {
             Some(st) => Ok(st),
             None => self.error(ErrorKind::EndOfFile)
         }
     }
 
-    fn expect(&mut self, tag: &str) -> Result<String, ParseError> {
+    fn expect(&mut self, tag: &str) -> Result<&'a str, ParseError> {
         let st = self.next_string()?;
         match st == tag {
             true => Ok(st),
-            false => self.error(ErrorKind::ExpectedStatementButGot(tag.into(), st))
+            false => self.error(ErrorKind::ExpectedStatementButGot(tag.into(), st.into()))
         }
     }
 
@@ -281,7 +281,7 @@ impl<Stream> Parser<Stream> where Stream: Iterator<Item=char> {
         let st = self.next_string()?;
         match st.parse::<f32>() {
             Ok(val) => Ok(val),
-            Err(_) => self.error(ErrorKind::ExpectedFloatButGot(st)),
+            Err(_) => self.error(ErrorKind::ExpectedFloatButGot(st.into())),
         }
     }
 
@@ -289,7 +289,7 @@ impl<Stream> Parser<Stream> where Stream: Iterator<Item=char> {
         let st = self.next_string()?;
         match st.parse::<u32>() {
             Ok(val) => Ok(val),
-            Err(_) => self.error(ErrorKind::ExpectedIntegerButGot(st)),
+            Err(_) => self.error(ErrorKind::ExpectedIntegerButGot(st.into())),
         }
     }
 
@@ -637,7 +637,7 @@ mod tests {
             normal_vertex_set: normal_vertex_set,
             elements: element_set,
         };
-        let mut parser = super::Parser::new(obj_file.chars());
+        let mut parser = super::Parser::new(obj_file);
         let result = parser.parse();
 
         (result, Ok(expected))
