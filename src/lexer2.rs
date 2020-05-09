@@ -111,7 +111,7 @@ impl<Stream> Lexer<Stream> where Stream: Iterator<Item=char> {
 
         // Count the number of bytes consumed for a token.
         let mut consumed: usize = 0;
-        let mut token: String = String::with_capacity(128);
+        let mut token: String = String::with_capacity(32);
         loop {
             match self.peek_char() {
                 Some(ch) if ch == '#' => {
