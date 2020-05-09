@@ -4,11 +4,6 @@ use criterion::{
     criterion_main, 
     Criterion
 };
-use benchmark_obj as obj;
-use obj::lexer::{
-    Lexer,
-};
-use obj::lexer2;
 use std::fs::File;
 use std::io::{
     BufReader,
