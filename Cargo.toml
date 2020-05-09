@@ -31,3 +31,7 @@ harness = false
 [[bench]]
 name = "benchmark_teapot_2"
 harness = false
+
+[[bench]]
+name = "benchmark_piston"
+harness = false
