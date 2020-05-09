@@ -2,7 +2,7 @@ use criterion::{
     black_box, 
     criterion_group, 
     criterion_main, 
-    Criterion
+    Criterion,
 };
 use benchmark_obj as obj;
 use obj::lexer2;
@@ -28,7 +28,7 @@ fn benchmark_lexer(c: &mut Criterion) {
         let mut reader = BufReader::new(file);
         let mut string = String::new();
         reader.read_to_string(&mut string).unwrap();
-        let lexer = lexer2::Lexer::new(string.chars());
+        let lexer = lexer2::ObjectLexer::new(lexer2::Lexer::new(&string));
         for token in lexer {
             // Run through the lexer.
         }
