@@ -10,8 +10,6 @@ use std::io::{
     Read
 };
 
-use wavefront_obj as piston_obj;
-
 const SAMPLE_DATA: &str = "assets/teapot.obj";
 
 
